@@ -652,4 +652,11 @@ renderStats();
 document.getElementById("topbar-counts").textContent =
   `${ASSETS.length} assets · ${ASSETS.filter(isCable).length} cables · ${ASSETS.filter(a => a.layer==='tti-pop').length} TTI POPs · ${ASSETS.filter(a => a.layer==='ai-megasite').length} AI DCs`;
 
+/* Market Context modal */
+const ctxOverlay = document.getElementById("ctx-overlay");
+document.getElementById("show-context").addEventListener("click", () => ctxOverlay.classList.add("open"));
+document.getElementById("ctx-close").addEventListener("click", () => ctxOverlay.classList.remove("open"));
+ctxOverlay.addEventListener("click", (e) => { if (e.target === ctxOverlay) ctxOverlay.classList.remove("open"); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") ctxOverlay.classList.remove("open"); });
+
 setView("map");

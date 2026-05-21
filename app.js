@@ -110,6 +110,158 @@ function renderAssetOnMap(a) {
 ASSETS.forEach(renderAssetOnMap);
 
 /* ============================================================
+ * TG (TeleGeography submarinecablemap.com) DATA INTEGRATION
+ * Loads verified geometries asynchronously and:
+ *   1) Replaces hand-drawn geometry on cables in TG_OVERRIDES
+ *   2) Renders all 712 TG cables as a background index layer
+ *   3) Verifies our landing coordinates against TG landing points
+ * ============================================================ */
+let TG_DATA = { cables: null, landings: null, status: "loading" };
+
+async function loadTGData() {
+  try {
+    const [cgRes, lgRes] = await Promise.all([
+      fetch("tg/cable-geo.json"),
+      fetch("tg/landing-geo.json")
+    ]);
+    if (!cgRes.ok || !lgRes.ok) throw new Error("fetch failed");
+    const cg = await cgRes.json();
+    const lg = await lgRes.json();
+
+    // Index by cable id (multi-segment)
+    const byId = {};
+    cg.features.forEach(f => {
+      const id = f.properties.id;
+      if (!byId[id]) byId[id] = { id, name: f.properties.name, color: f.properties.color, segments: [] };
+      // geometry.coordinates is array of LineString coord arrays for MultiLineString
+      byId[id].segments.push(f.geometry.coordinates);
+    });
+    TG_DATA.cables = byId;
+
+    const landings = {};
+    lg.features.forEach(f => {
+      landings[f.properties.id] = {
+        name: f.properties.name,
+        lat: f.geometry.coordinates[1],
+        lng: f.geometry.coordinates[0]
+      };
+    });
+    TG_DATA.landings = landings;
+    TG_DATA.status = "ready";
+
+    applyTGOverrides();
+    renderTGIndexLayer();
+    runLandingVerification();
+    document.getElementById("tg-status").textContent = `TG: ${Object.keys(byId).length} cables · ${Object.keys(landings).length} landings`;
+  } catch (e) {
+    TG_DATA.status = "error: " + e.message;
+    const el = document.getElementById("tg-status");
+    if (el) el.textContent = `TG load failed (${e.message}) — local geometries shown.`;
+    console.warn("TG data load failed:", e);
+  }
+}
+
+function applyTGOverrides() {
+  let count = 0;
+  Object.entries(TG_OVERRIDES).forEach(([ourId, tgId]) => {
+    const asset = ASSETS.find(a => a.id === ourId);
+    const tg = TG_DATA.cables[tgId];
+    if (!asset || !tg) return;
+    // Flatten MultiLineString into one polyline (first segment primary, then append others as separate polylines)
+    // Convert TG [lng,lat] → [lat,lng] for Leaflet
+    const primary = tg.segments[0].map(c => [c[1], c[0]]);
+    asset.geometry = primary;
+    asset._tg_extra_segments = tg.segments.slice(1).map(seg => seg.map(c => [c[1], c[0]]));
+    asset._tg_verified = true;
+    asset._tg_id = tgId;
+    asset._tg_name = tg.name;
+    // Remove old map feature and re-add with verified geometry
+    if (asset._mapFeature) {
+      const lg = layerGroups[asset.layer];
+      lg.eachLayer(layer => {
+        if (layer === asset._mapFeature) lg.removeLayer(layer);
+      });
+    }
+    // Re-render main polyline
+    const color = colorForAsset(asset);
+    const line = L.polyline(asset.geometry, {
+      color, weight: asset.ownerGroup === "tti" ? 3.2 : 2,
+      opacity: asset.ownerGroup === "tti" ? 0.95 : 0.85,
+      dashArray: asset.type === "terrestrial" ? "6,5" : null
+    });
+    line.bindPopup(popupHTML(asset));
+    line.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(asset.id); });
+    line.addTo(layerGroups[asset.layer]);
+    asset._mapFeature = line;
+    // Add extra TG segments (multi-segment cables like 2Africa branches)
+    asset._tg_extra_segments.forEach(seg => {
+      const l = L.polyline(seg, {
+        color, weight: asset.ownerGroup === "tti" ? 2.4 : 1.5,
+        opacity: 0.7,
+        dashArray: asset.type === "terrestrial" ? "6,5" : null
+      });
+      l.bindPopup(popupHTML(asset));
+      l.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(asset.id); });
+      l.addTo(layerGroups[asset.layer]);
+    });
+    count++;
+  });
+  console.log(`TG: applied verified geometry to ${count} cables`);
+}
+
+function renderTGIndexLayer() {
+  const layer = layerGroups["tg-subsea-index"];
+  if (!layer) return;
+  const ourTgIds = new Set(Object.values(TG_OVERRIDES));
+  Object.values(TG_DATA.cables).forEach(tg => {
+    // Render all TG cables as thin gray background (semi-transparent for ones we already have)
+    const isOurs = ourTgIds.has(tg.id);
+    tg.segments.forEach(seg => {
+      const coords = seg.map(c => [c[1], c[0]]);
+      const line = L.polyline(coords, {
+        color: "#4b5563",
+        weight: 1,
+        opacity: isOurs ? 0.25 : 0.55,
+        interactive: !isOurs
+      });
+      if (!isOurs) {
+        line.bindPopup(`<div class="map-popup"><div class="pop-title">${tg.name}</div><div class="pop-meta">TG cable id: ${tg.id}</div><div class="pop-meta">Not in TTI portfolio</div></div>`);
+      }
+      line.addTo(layer);
+    });
+  });
+}
+
+function runLandingVerification() {
+  // Cross-check our landing coordinates against TG canonical positions; warn if delta > 50 km
+  const haversineKm = (a, b) => {
+    const R = 6371, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(b[0]-a[0]), dLng = toRad(b[1]-a[1]);
+    const A = Math.sin(dLat/2)**2 + Math.cos(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.sin(dLng/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(A));
+  };
+  const warnings = [];
+  CABLES.filter(c => c.landings && c.landings.length).forEach(c => {
+    c.landings.forEach(lg => {
+      // try to find a TG landing with matching name keyword
+      const norm = lg.name.toLowerCase().split(/[ ,(]/)[0];
+      const tgMatch = Object.values(TG_DATA.landings).find(t => t.name.toLowerCase().startsWith(norm));
+      if (tgMatch) {
+        const d = haversineKm([lg.lat, lg.lng], [tgMatch.lat, tgMatch.lng]);
+        if (d > 50) warnings.push(`${c.name}/${lg.name}: ${d.toFixed(0)} km from TG "${tgMatch.name}"`);
+      }
+    });
+  });
+  if (warnings.length) {
+    console.warn("Landing coordinate deltas vs TG canonical:");
+    warnings.slice(0, 15).forEach(w => console.warn("  " + w));
+  }
+  document.getElementById("tg-status").title = warnings.length ? `${warnings.length} landing deltas >50km (see console)` : "All landings within 50km of TG canonical";
+}
+
+loadTGData();
+
+/* ============================================================
  * LAYER TOGGLES
  * ============================================================ */
 const layerTogglesEl = document.getElementById("layer-toggles");

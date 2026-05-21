@@ -7,6 +7,7 @@
  * ============================================================ */
 
 const LAYERS = [
+  { id:"tg-subsea-index",    label:"TG Subsea Index (712 cables)", color:"#374151", default:false, kind:"line"  },
   { id:"tti-cable",          label:"TTI Cables / Routes",         color:"#00c8e6", default:true,  kind:"line"  },
   { id:"competitor-cable",   label:"Competitor / Consortium Cables", color:"#f59e0b", default:true, kind:"line" },
   { id:"hs-subsea",          label:"Hyperscaler Subsea",          color:"#3b82f6", default:true,  kind:"line"  },
@@ -788,6 +789,39 @@ const POINTS = [
   {id:"ai-google-kairos", name:"Google – Kairos SMR cluster", layer:"ai-megasite", type:"ai-megasite", operator:"Google × Kairos Power", ownerGroup:"google", lat:33.4484, lng:-112.0740, city:"Multi-site US", country:"US", planned_mw:500, current_mw:0, status:"announced", rfs_date:"by 2035", notes:"TG2026: Google PPA for small modular reactors (SMR) to power AI data centers across multiple sites."},
   {id:"ai-equinix-oklo", name:"Equinix / Switch – Oklo SMR PPAs", layer:"ai-megasite", type:"ai-megasite", operator:"Equinix + Switch × Oklo", ownerGroup:"equinix", lat:39.7392, lng:-104.9903, city:"Multi-site US", country:"US", planned_mw:500, current_mw:0, status:"announced (2024-25)", rfs_date:"2027+", notes:"TG2026: PPA model — first hyperscale colo SMR deals. Equinix later added Radiant, Rolls-Royce, Stellaria deals (mid-2025)."}
 ];
+
+/* ---------- TG (TeleGeography submarinecablemap.com) cable-id overrides
+ * Used at runtime: app.js fetches tg/cable-geo.json and replaces the hand-drawn
+ * `geometry` of these cables with verified TG MultiLineString segments. ---------- */
+const TG_OVERRIDES = {
+  "tti-kafos":         "kafos",
+  "tti-peace-med":     "peace-cable",
+  "tti-smw5":          "seamewe-5",
+  "comp-trans-caspian":"trans-caspian-fiber-optic-cable-project",
+  "sub-smw6":          "seamewe-6",
+  "sub-smw4":          "seamewe-4",
+  "sub-imewe":         "imewe",
+  "sub-aae1":          "asia-africa-europe-1-aae-1",
+  "sub-eig":           "europe-india-gateway-eig",
+  "sub-peace":         "peace-cable",
+  "sub-bluemed":       "blue",
+  "sub-medusa":        "medusa-submarine-cable-system",
+  "sub-mednautilus":   "mednautilus-submarine-system",
+  "sub-ccs":           "caucasus-cable-system",
+  "sub-africa1":       "africa-1",
+  "sub-hawk":          "hawk",
+  "hs-2africa":        "2africa",
+  "hs-equiano":        "equiano",
+  "hs-blue-raman":     "blue",
+  "hs-apricot":        "apricot",
+  "hs-bifrost":        "bifrost",
+  "hs-echo":           "echo",
+  "hs-firmina":        "firmina",
+  "hs-iex":            "india-europe-xpress-iex",
+  "hs-waterworth":     "project-waterworth",
+  "hs-sjc2":           "southeast-asia-japan-cable-2-sjc2",
+  "hs-adc":            "asia-direct-cable-adc"
+};
 
 /* Build unified ASSETS array */
 const ASSETS = [...CABLES, ...POINTS];

@@ -61,60 +61,119 @@ function popupHTML(a) {
   </div>`;
 }
 
-function renderAssetOnMap(a) {
+/* Normalize a geometry so consecutive points never jump > 180° in longitude.
+   Without this, transpacific cables (e.g. California → Japan) draw across
+   Eurasia / the Arctic instead of across the Pacific. We shift offending
+   points by ±360 so Leaflet renders the actual route. */
+function normalizeGeometry(coords) {
+  if (!coords || coords.length < 2) return coords;
+  const out = [coords[0].slice()];
+  for (let i = 1; i < coords.length; i++) {
+    let [lat, lng] = coords[i];
+    const prevLng = out[i-1][1];
+    while (lng - prevLng > 180) lng -= 360;
+    while (lng - prevLng < -180) lng += 360;
+    out.push([lat, lng]);
+  }
+  return out;
+}
+
+/* Render a single point (POP / DC / IXP / carrier hotel / landing).
+   Cables are NOT rendered here — they only appear when pinned (see renderCableOnMap). */
+function renderPointOnMap(a) {
+  if (isCable(a)) return;
   const color = colorForAsset(a);
   const targetLayer = layerGroups[a.layer];
   if (!targetLayer) return;
+  if (a.lat == null || a.lng == null) return;
+
+  let radius = 4, fillOpacity = 0.85;
+  if (a.layer === "ai-megasite") {
+    radius = 5 + Math.sqrt((a.planned_mw || 100) / 200);
+    fillOpacity = 0.7;
+  } else if (a.layer === "ixp") {
+    radius = 4 + Math.sqrt((a.peak_tbps || 1));
+  } else if (a.layer === "tti-pop" && a.tier === "primary") {
+    radius = 5.5;
+  }
+  const m = L.circleMarker([a.lat, a.lng], {
+    radius, color, weight: 1.5, fillColor: color, fillOpacity
+  });
+  m._origStyle = { radius, weight: 1.5, opacity: 1, fillOpacity };
+  m.bindPopup(popupHTML(a));
+  m.on("click", () => selectAsset(a.id));
+  m.addTo(targetLayer);
+  a._mapFeature = m;
+  a._mapFeatures = [m];
+}
+
+/* Render a pinned cable: main polyline + any extra TG segments + landings.
+   Idempotent — calling twice is safe (first call's features cleaned up). */
+function renderCableOnMap(a) {
+  if (!isCable(a)) return;
+  unrenderCable(a); // clear any previous features
+  const color = colorForAsset(a);
+  const targetLayer = layerGroups[a.layer];
+  if (!targetLayer) return;
+  if (!a.geometry || a.geometry.length < 2) return;
 
   a._mapFeatures = [];
-  if (isCable(a) && a.geometry && a.geometry.length >= 2) {
-    const weight = a.ownerGroup === "tti" ? 3.2 : 2;
-    const opacity = a.ownerGroup === "tti" ? 0.95 : 0.75;
-    const line = L.polyline(a.geometry, {
-      color, weight, opacity,
-      dashArray: a.type === "terrestrial" ? "6,5" : null
-    });
-    line._origStyle = { weight, opacity };
-    line.bindPopup(popupHTML(a));
-    line.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(a.id); });
-    line.addTo(targetLayer);
-    a._mapFeature = line;
-    a._mapFeatures.push(line);
+  const weight = a.ownerGroup === "tti" ? 3.2 : 2;
+  const opacity = a.ownerGroup === "tti" ? 0.95 : 0.85;
+  const geom = normalizeGeometry(a.geometry);
+  const line = L.polyline(geom, {
+    color, weight, opacity,
+    dashArray: a.type === "terrestrial" ? "6,5" : null
+  });
+  line._origStyle = { weight, opacity };
+  line.bindPopup(popupHTML(a));
+  line.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(a.id); });
+  line.addTo(targetLayer);
+  a._mapFeature = line;
+  a._mapFeatures.push(line);
 
-    if (a.landings && a.landings.length) {
-      a.landings.forEach(lg => {
-        const m = L.circleMarker([lg.lat, lg.lng], {
-          radius: 3.5, color, weight: 1.5, fillColor: "#001018", fillOpacity: 1
-        });
-        m.bindPopup(`<div class="map-popup"><div class="pop-title">${lg.name}</div><div class="pop-meta">${a.name} landing</div></div>`);
-        m.addTo(targetLayer);
-        a._mapFeatures.push(m);
+  // Extra TG segments (multi-segment cables like 2Africa branches)
+  if (a._tg_extra_segments && a._tg_extra_segments.length) {
+    const extraWeight = a.ownerGroup === "tti" ? 2.4 : 1.5;
+    const extraOpacity = 0.7;
+    a._tg_extra_segments.forEach(seg => {
+      const l = L.polyline(normalizeGeometry(seg), {
+        color, weight: extraWeight, opacity: extraOpacity,
+        dashArray: a.type === "terrestrial" ? "6,5" : null
       });
-    }
-  } else if (a.lat != null && a.lng != null) {
-    let radius = 4, fillOpacity = 0.85;
-    if (a.layer === "ai-megasite") {
-      radius = 5 + Math.sqrt((a.planned_mw || 100) / 200);
-      fillOpacity = 0.7;
-    } else if (a.layer === "ixp") {
-      radius = 4 + Math.sqrt((a.peak_tbps || 1));
-    } else if (a.layer === "tti-pop" && a.tier === "primary") {
-      radius = 5.5;
-    }
-    const m = L.circleMarker([a.lat, a.lng], {
-      radius, color, weight: 1.5, fillColor: color, fillOpacity
+      l._origStyle = { weight: extraWeight, opacity: extraOpacity };
+      l.bindPopup(popupHTML(a));
+      l.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(a.id); });
+      l.addTo(targetLayer);
+      a._mapFeatures.push(l);
     });
-    m._origStyle = { radius, weight: 1.5, opacity: 1, fillOpacity };
-    m.bindPopup(popupHTML(a));
-    m.on("click", () => selectAsset(a.id));
-    m.addTo(targetLayer);
-    a._mapFeature = m;
-    a._mapFeatures.push(m);
+  }
+
+  // Landing markers
+  if (a.landings && a.landings.length) {
+    a.landings.forEach(lg => {
+      const m = L.circleMarker([lg.lat, lg.lng], {
+        radius: 3.5, color, weight: 1.5, fillColor: "#001018", fillOpacity: 1
+      });
+      m.bindPopup(`<div class="map-popup"><div class="pop-title">${lg.name}</div><div class="pop-meta">${a.name} landing</div></div>`);
+      m.addTo(targetLayer);
+      a._mapFeatures.push(m);
+    });
   }
 }
 
-ASSETS.forEach(renderAssetOnMap);
-console.log(`%c[TTI Benchmark v6]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables — default: empty map (tick to add)`, "color:#00c8e6;font-weight:bold", "color:inherit");
+function unrenderCable(a) {
+  if (!a._mapFeatures || !a._mapFeatures.length) return;
+  a._mapFeatures.forEach(f => {
+    if (f && typeof f.remove === "function") f.remove();
+  });
+  a._mapFeatures = [];
+  a._mapFeature = null;
+}
+
+// Initial render: only points. Cables remain off-map until pinned.
+ASSETS.forEach(a => { if (!isCable(a)) renderPointOnMap(a); });
+console.log(`%c[TTI Benchmark v7]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables — map starts empty, click cable in sidebar to render`, "color:#00c8e6;font-weight:bold", "color:inherit");
 
 /* ============================================================
  * TG (TeleGeography submarinecablemap.com) DATA INTEGRATION
@@ -175,49 +234,18 @@ function applyTGOverrides() {
     const asset = ASSETS.find(a => a.id === ourId);
     const tg = TG_DATA.cables[tgId];
     if (!asset || !tg) return;
-    // Flatten MultiLineString into one polyline (first segment primary, then append others as separate polylines)
-    // Convert TG [lng,lat] → [lat,lng] for Leaflet
+    // Update the asset's geometry with verified TG data.
+    // Render is deferred — cables only draw when pinned (renderCableOnMap).
     const primary = tg.segments[0].map(c => [c[1], c[0]]);
     asset.geometry = primary;
     asset._tg_extra_segments = tg.segments.slice(1).map(seg => seg.map(c => [c[1], c[0]]));
     asset._tg_verified = true;
     asset._tg_id = tgId;
     asset._tg_name = tg.name;
-    // Remove old map feature and re-add with verified geometry
-    if (asset._mapFeature) {
-      const lg = layerGroups[asset.layer];
-      lg.eachLayer(layer => {
-        if (layer === asset._mapFeature) lg.removeLayer(layer);
-      });
+    // If this cable is currently pinned (visible on map), re-render with new geometry
+    if (STATE.pins.includes(asset.id)) {
+      renderCableOnMap(asset);
     }
-    // Re-render main polyline
-    const color = colorForAsset(asset);
-    const mainWeight = asset.ownerGroup === "tti" ? 3.2 : 2;
-    const mainOpacity = asset.ownerGroup === "tti" ? 0.95 : 0.85;
-    const line = L.polyline(asset.geometry, {
-      color, weight: mainWeight, opacity: mainOpacity,
-      dashArray: asset.type === "terrestrial" ? "6,5" : null
-    });
-    line._origStyle = { weight: mainWeight, opacity: mainOpacity };
-    line.bindPopup(popupHTML(asset));
-    line.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(asset.id); });
-    line.addTo(layerGroups[asset.layer]);
-    asset._mapFeature = line;
-    asset._mapFeatures = [line];
-    // Add extra TG segments (multi-segment cables like 2Africa branches)
-    asset._tg_extra_segments.forEach(seg => {
-      const extraWeight = asset.ownerGroup === "tti" ? 2.4 : 1.5;
-      const extraOpacity = 0.7;
-      const l = L.polyline(seg, {
-        color, weight: extraWeight, opacity: extraOpacity,
-        dashArray: asset.type === "terrestrial" ? "6,5" : null
-      });
-      l._origStyle = { weight: extraWeight, opacity: extraOpacity };
-      l.bindPopup(popupHTML(asset));
-      l.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectAsset(asset.id); });
-      l.addTo(layerGroups[asset.layer]);
-      asset._mapFeatures.push(l);
-    });
     count++;
   });
   console.log(`TG: applied verified geometry to ${count} cables`);
@@ -610,28 +638,24 @@ function togglePin(id) {
   return true;
 }
 
-/* Cables are hidden by default. Only pinned cables (max 3) appear on the map.
-   Points (POPs, landings, hyperscalers) are unaffected. */
+/* Map reflects exactly STATE.pins for cables. Unpinned cables are torn down,
+   pinned cables are rendered fresh. Points are unaffected. */
 function applyPinFilter() {
   const pinnedIds = STATE.pins.filter(Boolean);
-  let hidden = 0, shown = 0, untracked = 0;
+  let rendered = 0, removed = 0;
   ASSETS.forEach(a => {
     if (!isCable(a)) return;
-    const lg = layerGroups[a.layer];
-    if (!lg) return;
     const shouldShow = pinnedIds.includes(a.id);
-    if (!a._mapFeatures || !a._mapFeatures.length) { untracked++; return; }
-    a._mapFeatures.forEach(f => {
-      if (shouldShow) {
-        if (!lg.hasLayer(f)) lg.addLayer(f);
-        shown++;
-      } else {
-        if (lg.hasLayer(f)) lg.removeLayer(f);
-        hidden++;
-      }
-    });
+    const currentlyOnMap = a._mapFeatures && a._mapFeatures.length > 0;
+    if (shouldShow && !currentlyOnMap) {
+      renderCableOnMap(a);
+      rendered++;
+    } else if (!shouldShow && currentlyOnMap) {
+      unrenderCable(a);
+      removed++;
+    }
   });
-  console.log(`[applyPinFilter v6] pinned=[${pinnedIds.join(",")}] hidden=${hidden} shown=${shown} untracked=${untracked}`);
+  console.log(`[applyPinFilter v7] pinned=[${pinnedIds.join(",")}] rendered=${rendered} removed=${removed}`);
   // Right panel: 0 pinned → empty state, 1 pinned → detail, 2-3 pinned → benchmark
   if (pinnedIds.length === 0) {
     detailPane.innerHTML = `

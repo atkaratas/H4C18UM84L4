@@ -157,6 +157,7 @@ async function loadTGData() {
     applyTGOverrides();
     renderTGIndexLayer();
     runLandingVerification();
+    applyPinFilter();
     document.getElementById("tg-status").textContent = `TG: ${Object.keys(byId).length} cables · ${Object.keys(landings).length} landings`;
   } catch (e) {
     TG_DATA.status = "error: " + e.message;
@@ -352,12 +353,28 @@ function renderAssetList() {
     const el = document.createElement("div");
     el.className = "asset-item" + (a.id === STATE.selectedAssetId ? " selected" : "");
     el.dataset.id = a.id;
+    const cable = isCable(a);
+    const isPinned = STATE.pins.includes(a.id);
     el.innerHTML = `
+      ${cable ? `<input type="checkbox" class="asset-tick" data-id="${a.id}" ${isPinned ? "checked" : ""} title="Benchmark karşılaştırmasına ekle (max 3)" />` : `<span class="asset-tick-spacer"></span>`}
       <span class="dot" style="background:${colorForAsset(a)}"></span>
       <span class="name" title="${a.name}">${a.name}</span>
       <span class="type">${a.type}</span>
     `;
-    el.addEventListener("click", () => selectAsset(a.id, true));
+    el.addEventListener("click", (ev) => {
+      if (ev.target.matches(".asset-tick")) return; // checkbox handled separately
+      selectAsset(a.id, true);
+    });
+    const cb = el.querySelector(".asset-tick");
+    if (cb) {
+      cb.addEventListener("click", (ev) => ev.stopPropagation());
+      cb.addEventListener("change", (ev) => {
+        const wasChecked = ev.target.checked;
+        const result = togglePin(a.id);
+        // togglePin may reject the 4th — sync checkbox state with actual STATE.pins
+        ev.target.checked = STATE.pins.includes(a.id);
+      });
+    }
     assetListEl.appendChild(el);
   });
   assetCountEl.textContent = `(${filtered.length} / ${ASSETS.length})`;
@@ -564,12 +581,111 @@ function togglePin(id) {
     STATE.pins[existingIdx] = null;
   } else {
     const slot = STATE.pins.indexOf(null);
-    if (slot < 0) { alert("Max 3 pins. Remove one first."); return; }
+    if (slot < 0) { alert("Max 3 hat seçilebilir. Önce birini kaldırın."); return false; }
     STATE.pins[slot] = id;
   }
   renderPins();
+  applyPinFilter();
+  renderAssetList();
   if (STATE.showCompare) renderCompareTable();
-  if (STATE.selectedAssetId) selectAsset(STATE.selectedAssetId);
+  return true;
+}
+
+/* Hide unpinned cables from the map when 1+ pins are active.
+   When no pins active, all cables visible (default). Points always visible. */
+function applyPinFilter() {
+  const pinnedIds = STATE.pins.filter(Boolean);
+  const filterActive = pinnedIds.length > 0;
+  ASSETS.forEach(a => {
+    if (!isCable(a)) return; // points & other types unaffected
+    const lg = layerGroups[a.layer];
+    if (!lg) return;
+    const shouldShow = !filterActive || pinnedIds.includes(a.id);
+    (a._mapFeatures || []).forEach(f => {
+      if (shouldShow) {
+        if (!lg.hasLayer(f)) lg.addLayer(f);
+      } else {
+        if (lg.hasLayer(f)) lg.removeLayer(f);
+      }
+    });
+  });
+  // Right panel: when comparing show benchmark, else fall back to detail/empty
+  if (filterActive) {
+    renderBenchmarkPanel(pinnedIds);
+  } else if (STATE.selectedAssetId) {
+    const a = ASSETS.find(x => x.id === STATE.selectedAssetId);
+    if (a) { detailPane.innerHTML = renderDetailHTML(a); wireDetailPaneEvents(a); }
+  }
+}
+
+function renderBenchmarkPanel(pinnedIds) {
+  const cables = pinnedIds.map(id => ASSETS.find(a => a.id === id)).filter(Boolean);
+  cables.sort((a,b) => (b.strategic_value_score||0) - (a.strategic_value_score||0));
+  const cols = [
+    { k:"capacity_tbps_design", label:"Tbps (design)", u:"" },
+    { k:"capacity_tbps_lit", label:"Tbps (lit)", u:"" },
+    { k:"capex_usd_m", label:"CapEx", u:" M$" },
+    { k:"opex_annual_usd_m", label:"OpEx/yr", u:" M$" },
+    { k:"revenue_potential_usd_m", label:"Revenue pot.", u:" M$" },
+    { k:"strategic_value_score", label:"Strategic", u:" /10" },
+    { k:"route_diversity_score", label:"Diversity", u:" /10" }
+  ];
+  // best-of-column highlight
+  const bestPerCol = {};
+  cols.forEach(c => {
+    const vals = cables.map(a => a[c.k]).filter(v => v != null);
+    if (vals.length) bestPerCol[c.k] = Math.max(...vals);
+  });
+  detailPane.innerHTML = `
+    <div class="detail-header">
+      <h2>Benchmark <span style="color:var(--text-mute);font-weight:normal;font-size:12px;">(${cables.length}/3 seçili)</span></h2>
+      <div style="color:var(--text-mute);font-size:11px;margin-top:4px;">Stratejik değere göre sıralı · ✓ = kategorinin en iyisi</div>
+    </div>
+    <table class="benchmark-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          ${cables.map(a => `<th><div class="bm-name" title="${a.name}">${a.name}</div><div class="bm-owner">${(a.owner||a.operator||"").split(',')[0].split('(')[0].trim()}</div></th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${cols.map(c => `
+          <tr>
+            <td class="bm-metric">${c.label}</td>
+            ${cables.map(a => {
+              const v = a[c.k];
+              const isBest = v != null && v === bestPerCol[c.k] && cables.length > 1;
+              return `<td class="${isBest ? 'bm-best' : ''}">${v != null ? v + c.u : '—'}${isBest ? ' ✓' : ''}</td>`;
+            }).join("")}
+          </tr>
+        `).join("")}
+        <tr>
+          <td class="bm-metric">Latency (ms)</td>
+          ${cables.map(a => `<td>${a.latency_ms_key_pair ? a.latency_ms_key_pair.value + ' <span style="color:var(--text-mute);font-size:10px">'+(a.latency_ms_key_pair.pair||'')+'</span>' : '—'}</td>`).join("")}
+        </tr>
+        <tr>
+          <td class="bm-metric">Status</td>
+          ${cables.map(a => `<td>${a.status || '—'}</td>`).join("")}
+        </tr>
+        <tr>
+          <td class="bm-metric">RFS</td>
+          ${cables.map(a => `<td>${a.rfs_date || '—'}</td>`).join("")}
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${cables.map(a => `<button class="mini-btn bm-zoom" data-id="${a.id}">Zoom: ${a.name.split(' ')[0]}</button>`).join("")}
+      <button class="mini-btn" id="bm-clear" style="margin-left:auto;">Tümünü kaldır</button>
+    </div>
+  `;
+  detailPane.querySelectorAll(".bm-zoom").forEach(btn => {
+    btn.addEventListener("click", () => selectAsset(btn.dataset.id, true));
+  });
+  const clearBtn = detailPane.querySelector("#bm-clear");
+  if (clearBtn) clearBtn.addEventListener("click", () => {
+    STATE.pins = [null, null, null];
+    renderPins(); applyPinFilter(); renderAssetList();
+  });
 }
 
 function renderPins() {

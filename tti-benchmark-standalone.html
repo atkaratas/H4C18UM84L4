@@ -71,6 +71,15 @@
     .asset-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
     .asset-item .name{flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .asset-item .type{font-family:var(--mono);font-size:9px;color:var(--text-mute);text-transform:uppercase;letter-spacing:0.5px}
+    .asset-item .asset-tick{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;margin:0}
+    .asset-item .asset-tick-spacer{width:14px;flex-shrink:0}
+    .benchmark-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+    .benchmark-table th,.benchmark-table td{padding:5px 6px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+    .benchmark-table th{background:var(--bg-2);color:var(--text);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:0.3px}
+    .benchmark-table .bm-name{font-weight:600;font-size:11px;color:var(--text);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .benchmark-table .bm-owner{font-family:var(--mono);font-size:9px;color:var(--text-mute);margin-top:1px}
+    .benchmark-table .bm-metric{font-family:var(--mono);font-size:10px;color:var(--text-mute);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap}
+    .benchmark-table .bm-best{background:rgba(0,200,230,0.12);color:var(--accent);font-weight:600}
 
     /* RIGHT PANEL */
     .placeholder{padding:40px 20px;text-align:center;color:var(--text-mute);font-size:12px}
@@ -895,7 +904,7 @@ const CABLES = [
     latency_ms_key_pair:{pair:"Miami–São Paulo", value:114, est:true},
     segments_owned_pct:0, irus_sold:null,
     partners:["Google"],
-    notes:"Longest single-power-feed subsea cable. TG2026: drove Miami–SP 100G to ?v=32K/mo (-25% CAGR 2021-24)." },
+    notes:"Longest single-power-feed subsea cable. TG2026: drove Miami–SP 100G to ?v=42K/mo (-25% CAGR 2021-24)." },
 
   { id:"hs-sjc2", name:"SJC-2 (Southeast Asia-Japan Cable 2)", owner:"China Mobile, Chunghwa, Chuan Wei, KDDI, Singtel, SK Broadband, PLDT, Telin, VNPT", ownerGroup:"sjc2", layer:"competitor-cable", type:"subsea",
     geometry:[[35.106,140.087],[25.033,121.565],[22.396,114.109],[14.599,120.984],[3.140,101.687],[10.823,106.629],[1.352,103.820]],
@@ -960,7 +969,7 @@ const CABLES = [
     latency_ms_key_pair:{pair:"US West–Tokyo", value:88, est:true},
     segments_owned_pct:0, irus_sold:null,
     partners:["Google"],
-    notes:"TG2026: multi-system trans-Pacific initiative, ?v=3B+. Earliest segments RFS 2026. Drives expected $3B+ surge in trans-Pacific subsea CapEx 2025-27." }
+    notes:"TG2026: multi-system trans-Pacific initiative, ?v=4B+. Earliest segments RFS 2026. Drives expected $3B+ surge in trans-Pacific subsea CapEx 2025-27." }
 ];
 
 /* ---------- POINT ASSETS (POPs, NOCs, carrier hotels, landings, hyperscalers, AI sites, IXPs) ---------- */
@@ -1117,7 +1126,7 @@ const POINTS = [
 
   /* ===== AI mega-sites ===== */
   {id:"ai-xai-colossus1", name:"xAI Colossus 1", layer:"ai-megasite", type:"ai-megasite", operator:"xAI", ownerGroup:"xai", lat:35.0915, lng:-89.9711, city:"Memphis, TN", country:"US", planned_mw:250, current_mw:250, gpu_count:200000, status:"operational", rfs_date:"2024", notes:"200K H100/H200 GPUs. On-site gas turbines."},
-  {id:"ai-xai-colossus2", name:"xAI Colossus 2", layer:"ai-megasite", type:"ai-megasite", operator:"xAI", ownerGroup:"xai", lat:35.0824, lng:-89.9650, city:"Memphis, TN", country:"US", planned_mw:2000, current_mw:1100, gpu_count:555000, status:"scaling (target 1M GPUs late 2026)", rfs_date:"2026-01", notes:"World's largest single-site AI install. 2GW gas plant adjacent. ?v=38B GPU spend."},
+  {id:"ai-xai-colossus2", name:"xAI Colossus 2", layer:"ai-megasite", type:"ai-megasite", operator:"xAI", ownerGroup:"xai", lat:35.0824, lng:-89.9650, city:"Memphis, TN", country:"US", planned_mw:2000, current_mw:1100, gpu_count:555000, status:"scaling (target 1M GPUs late 2026)", rfs_date:"2026-01", notes:"World's largest single-site AI install. 2GW gas plant adjacent. ?v=48B GPU spend."},
   {id:"ai-meta-hyperion", name:"Meta Hyperion", layer:"ai-megasite", type:"ai-megasite", operator:"Meta", ownerGroup:"meta", lat:32.4180, lng:-91.4929, city:"Delhi/Rayville, LA", country:"US", planned_mw:5000, current_mw:0, status:"under construction (through 2030)", rfs_date:"2027", notes:"$200B+, 4M sqft, 2,250 acres. Largest Meta DC ever. 10 gas plants on-site."},
   {id:"ai-stargate-abilene", name:"Stargate Abilene (Site 1)", layer:"ai-megasite", type:"ai-megasite", operator:"Stargate (OpenAI/Oracle/SoftBank)", ownerGroup:"stargate", lat:32.4487, lng:-99.7331, city:"Abilene, TX", country:"US", planned_mw:1200, current_mw:300, gpu_count:450000, status:"operational (partial)", rfs_date:"2025-09", notes:"8 buildings, Nvidia GB200. Flagship Stargate site."},
   {id:"ai-stargate-shackelford", name:"Stargate Shackelford", layer:"ai-megasite", type:"ai-megasite", operator:"Stargate", ownerGroup:"stargate", lat:32.7245, lng:-99.2961, city:"Albany, TX", country:"US", planned_mw:900, current_mw:0, status:"announced", rfs_date:"2027"},
@@ -1356,6 +1365,7 @@ async function loadTGData() {
     applyTGOverrides();
     renderTGIndexLayer();
     runLandingVerification();
+    applyPinFilter();
     document.getElementById("tg-status").textContent = `TG: ${Object.keys(byId).length} cables · ${Object.keys(landings).length} landings`;
   } catch (e) {
     TG_DATA.status = "error: " + e.message;
@@ -1551,12 +1561,28 @@ function renderAssetList() {
     const el = document.createElement("div");
     el.className = "asset-item" + (a.id === STATE.selectedAssetId ? " selected" : "");
     el.dataset.id = a.id;
+    const cable = isCable(a);
+    const isPinned = STATE.pins.includes(a.id);
     el.innerHTML = `
+      ${cable ? `<input type="checkbox" class="asset-tick" data-id="${a.id}" ${isPinned ? "checked" : ""} title="Benchmark karşılaştırmasına ekle (max 3)" />` : `<span class="asset-tick-spacer"></span>`}
       <span class="dot" style="background:${colorForAsset(a)}"></span>
       <span class="name" title="${a.name}">${a.name}</span>
       <span class="type">${a.type}</span>
     `;
-    el.addEventListener("click", () => selectAsset(a.id, true));
+    el.addEventListener("click", (ev) => {
+      if (ev.target.matches(".asset-tick")) return; // checkbox handled separately
+      selectAsset(a.id, true);
+    });
+    const cb = el.querySelector(".asset-tick");
+    if (cb) {
+      cb.addEventListener("click", (ev) => ev.stopPropagation());
+      cb.addEventListener("change", (ev) => {
+        const wasChecked = ev.target.checked;
+        const result = togglePin(a.id);
+        // togglePin may reject the 4th — sync checkbox state with actual STATE.pins
+        ev.target.checked = STATE.pins.includes(a.id);
+      });
+    }
     assetListEl.appendChild(el);
   });
   assetCountEl.textContent = `(${filtered.length} / ${ASSETS.length})`;
@@ -1772,12 +1798,111 @@ function togglePin(id) {
     STATE.pins[existingIdx] = null;
   } else {
     const slot = STATE.pins.indexOf(null);
-    if (slot < 0) { alert("Max 3 pins. Remove one first."); return; }
+    if (slot < 0) { alert("Max 3 hat seçilebilir. Önce birini kaldırın."); return false; }
     STATE.pins[slot] = id;
   }
   renderPins();
+  applyPinFilter();
+  renderAssetList();
   if (STATE.showCompare) renderCompareTable();
-  if (STATE.selectedAssetId) selectAsset(STATE.selectedAssetId);
+  return true;
+}
+
+/* Hide unpinned cables from the map when 1+ pins are active.
+   When no pins active, all cables visible (default). Points always visible. */
+function applyPinFilter() {
+  const pinnedIds = STATE.pins.filter(Boolean);
+  const filterActive = pinnedIds.length > 0;
+  ASSETS.forEach(a => {
+    if (!isCable(a)) return; // points & other types unaffected
+    const lg = layerGroups[a.layer];
+    if (!lg) return;
+    const shouldShow = !filterActive || pinnedIds.includes(a.id);
+    (a._mapFeatures || []).forEach(f => {
+      if (shouldShow) {
+        if (!lg.hasLayer(f)) lg.addLayer(f);
+      } else {
+        if (lg.hasLayer(f)) lg.removeLayer(f);
+      }
+    });
+  });
+  // Right panel: when comparing show benchmark, else fall back to detail/empty
+  if (filterActive) {
+    renderBenchmarkPanel(pinnedIds);
+  } else if (STATE.selectedAssetId) {
+    const a = ASSETS.find(x => x.id === STATE.selectedAssetId);
+    if (a) { detailPane.innerHTML = renderDetailHTML(a); wireDetailPaneEvents(a); }
+  }
+}
+
+function renderBenchmarkPanel(pinnedIds) {
+  const cables = pinnedIds.map(id => ASSETS.find(a => a.id === id)).filter(Boolean);
+  cables.sort((a,b) => (b.strategic_value_score||0) - (a.strategic_value_score||0));
+  const cols = [
+    { k:"capacity_tbps_design", label:"Tbps (design)", u:"" },
+    { k:"capacity_tbps_lit", label:"Tbps (lit)", u:"" },
+    { k:"capex_usd_m", label:"CapEx", u:" M$" },
+    { k:"opex_annual_usd_m", label:"OpEx/yr", u:" M$" },
+    { k:"revenue_potential_usd_m", label:"Revenue pot.", u:" M$" },
+    { k:"strategic_value_score", label:"Strategic", u:" /10" },
+    { k:"route_diversity_score", label:"Diversity", u:" /10" }
+  ];
+  // best-of-column highlight
+  const bestPerCol = {};
+  cols.forEach(c => {
+    const vals = cables.map(a => a[c.k]).filter(v => v != null);
+    if (vals.length) bestPerCol[c.k] = Math.max(...vals);
+  });
+  detailPane.innerHTML = `
+    <div class="detail-header">
+      <h2>Benchmark <span style="color:var(--text-mute);font-weight:normal;font-size:12px;">(${cables.length}/3 seçili)</span></h2>
+      <div style="color:var(--text-mute);font-size:11px;margin-top:4px;">Stratejik değere göre sıralı · ✓ = kategorinin en iyisi</div>
+    </div>
+    <table class="benchmark-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          ${cables.map(a => `<th><div class="bm-name" title="${a.name}">${a.name}</div><div class="bm-owner">${(a.owner||a.operator||"").split(',')[0].split('(')[0].trim()}</div></th>`).join("")}
+        </tr>
+      </thead>
+      <tbody>
+        ${cols.map(c => `
+          <tr>
+            <td class="bm-metric">${c.label}</td>
+            ${cables.map(a => {
+              const v = a[c.k];
+              const isBest = v != null && v === bestPerCol[c.k] && cables.length > 1;
+              return `<td class="${isBest ? 'bm-best' : ''}">${v != null ? v + c.u : '—'}${isBest ? ' ✓' : ''}</td>`;
+            }).join("")}
+          </tr>
+        `).join("")}
+        <tr>
+          <td class="bm-metric">Latency (ms)</td>
+          ${cables.map(a => `<td>${a.latency_ms_key_pair ? a.latency_ms_key_pair.value + ' <span style="color:var(--text-mute);font-size:10px">'+(a.latency_ms_key_pair.pair||'')+'</span>' : '—'}</td>`).join("")}
+        </tr>
+        <tr>
+          <td class="bm-metric">Status</td>
+          ${cables.map(a => `<td>${a.status || '—'}</td>`).join("")}
+        </tr>
+        <tr>
+          <td class="bm-metric">RFS</td>
+          ${cables.map(a => `<td>${a.rfs_date || '—'}</td>`).join("")}
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      ${cables.map(a => `<button class="mini-btn bm-zoom" data-id="${a.id}">Zoom: ${a.name.split(' ')[0]}</button>`).join("")}
+      <button class="mini-btn" id="bm-clear" style="margin-left:auto;">Tümünü kaldır</button>
+    </div>
+  `;
+  detailPane.querySelectorAll(".bm-zoom").forEach(btn => {
+    btn.addEventListener("click", () => selectAsset(btn.dataset.id, true));
+  });
+  const clearBtn = detailPane.querySelector("#bm-clear");
+  if (clearBtn) clearBtn.addEventListener("click", () => {
+    STATE.pins = [null, null, null];
+    renderPins(); applyPinFilter(); renderAssetList();
+  });
 }
 
 function renderPins() {
@@ -2174,7 +2299,7 @@ function renderTrendsView() {
     <div class="trend-grid">
       <div class="trend-card">
         <h3>Subsea cable CapEx (USD B)</h3>
-        <div class="sub">2016-2024 actual · 2025-2027 planned. Pipeline reaches ?v=34B+ over 3 years (TG2026).</div>
+        <div class="sub">2016-2024 actual · 2025-2027 planned. Pipeline reaches ?v=44B+ over 3 years (TG2026).</div>
         ${barChart({data:TRENDS.subseaCapex, xKey:'y', yKey:'v', yLabel:'USD B'})}
       </div>
       <div class="trend-card">

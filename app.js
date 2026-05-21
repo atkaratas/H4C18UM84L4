@@ -110,12 +110,15 @@ function renderPointOnMap(a) {
 /* Render a pinned cable: main polyline + any extra TG segments + landings.
    Idempotent — calling twice is safe (first call's features cleaned up). */
 function renderCableOnMap(a) {
-  if (!isCable(a)) return;
+  if (!isCable(a)) { console.warn("[renderCableOnMap] not a cable:", a.id); return; }
   unrenderCable(a); // clear any previous features
   const color = colorForAsset(a);
   const targetLayer = layerGroups[a.layer];
-  if (!targetLayer) return;
-  if (!a.geometry || a.geometry.length < 2) return;
+  if (!targetLayer) { console.warn("[renderCableOnMap] no layer for", a.id, a.layer); return; }
+  if (!a.geometry || a.geometry.length < 2) {
+    console.warn("[renderCableOnMap] no geometry for", a.id, "len=", (a.geometry||[]).length);
+    return;
+  }
 
   a._mapFeatures = [];
   const weight = a.ownerGroup === "tti" ? 3.2 : 2;
@@ -131,6 +134,7 @@ function renderCableOnMap(a) {
   line.addTo(targetLayer);
   a._mapFeature = line;
   a._mapFeatures.push(line);
+  console.log(`[renderCableOnMap v7] ${a.id} → ${geom.length} pts on layer "${a.layer}", layerOnMap=${map.hasLayer(targetLayer)}, color=${color}`);
 
   // Extra TG segments (multi-segment cables like 2Africa branches)
   if (a._tg_extra_segments && a._tg_extra_segments.length) {
@@ -459,7 +463,7 @@ function highlightAsset(a) {
 }
 
 function selectAsset(id, fly = false) {
-  console.log("[selectAsset v6]", id, "fly=", fly);
+  console.log("[selectAsset v7]", id, "fly=", fly, "pins=", STATE.pins);
   STATE.selectedAssetId = id;
   const a = ASSETS.find(x => x.id === id);
   if (!a) { console.warn("asset not found:", id); return; }

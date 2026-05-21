@@ -19,8 +19,8 @@ const patchedApp = app.replace(
 );
 
 const inlined = html
-  .replace('<script src="data.js"></script>', `<script>\n${data}\n</script>`)
-  .replace('<script src="app.js"></script>', `<script>\nwindow.__TG_CABLE_GEO__ = ${cableGeo};\nwindow.__TG_LANDING_GEO__ = ${landingGeo};\n${patchedApp}\n</script>`);
+  .replace(/<script src="data\.js(\?[^"]*)?"><\/script>/, `<script>\n${data}\n</script>`)
+  .replace(/<script src="app\.js(\?[^"]*)?"><\/script>/, `<script>\nwindow.__TG_CABLE_GEO__ = ${cableGeo};\nwindow.__TG_LANDING_GEO__ = ${landingGeo};\n${patchedApp}\n</script>`);
 
 const outPath = path.join(ROOT, 'tti-benchmark-standalone.html');
 fs.writeFileSync(outPath, inlined);

@@ -412,15 +412,17 @@ function highlightAsset(a) {
 }
 
 function selectAsset(id, fly = false) {
+  console.log("[selectAsset v3]", id, "fly=", fly);
   STATE.selectedAssetId = id;
   const a = ASSETS.find(x => x.id === id);
-  if (!a) return;
+  if (!a) { console.warn("asset not found:", id); return; }
   detailPane.innerHTML = renderDetailHTML(a);
   wireDetailPaneEvents(a);
   renderAssetList();
 
   // Auto-enable the asset's layer if currently hidden
   if (a.layer && layerGroups[a.layer] && !STATE.activeLayers.has(a.layer)) {
+    console.log("[selectAsset] auto-enabling layer:", a.layer);
     STATE.activeLayers.add(a.layer);
     layerGroups[a.layer].addTo(map);
     const cb = layerTogglesEl.querySelector(`input[data-layer="${a.layer}"]`);
@@ -428,20 +430,30 @@ function selectAsset(id, fly = false) {
     if (typeof renderStats === "function") renderStats();
   }
 
+  // If we're not on the map view, switch to it so the user sees the result
+  if (fly && STATE.view !== "map") {
+    const btn = viewSwitchEl.querySelector(`button[data-view="map"]`);
+    if (btn) btn.click();
+  }
+
   clearHighlight();
   highlightAsset(a);
 
-  // Fly when invoked from a list/external trigger
   if (fly) {
-    if (isCable(a) && a.geometry && a.geometry.length) {
-      map.fitBounds(L.latLngBounds(a.geometry).pad(0.2), { maxZoom: 5 });
-    } else if (a.lat != null && a.lng != null) {
-      map.setView([a.lat, a.lng], Math.max(map.getZoom(), 6));
+    const cable = isCable(a) && a.geometry && a.geometry.length >= 2;
+    const point = a.lat != null && a.lng != null;
+    console.log("[selectAsset] fly check — cable:", cable, "point:", point, "geometry.len:", (a.geometry||[]).length);
+    if (cable) {
+      const bounds = L.latLngBounds(a.geometry).pad(0.2);
+      map.flyToBounds(bounds, { maxZoom: 5, duration: 0.8 });
+    } else if (point) {
+      map.flyTo([a.lat, a.lng], Math.max(map.getZoom(), 6), { duration: 0.8 });
+    } else {
+      console.warn("[selectAsset] no geometry and no lat/lng on asset", id, a);
     }
-    // Open popup after the fly settles
     const main = a._mapFeature;
     if (main && main.openPopup) {
-      setTimeout(() => { try { main.openPopup(); } catch (e) {} }, 250);
+      setTimeout(() => { try { main.openPopup(); } catch (e) {} }, 900);
     }
   }
 }

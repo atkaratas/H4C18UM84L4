@@ -904,7 +904,7 @@ const CABLES = [
     latency_ms_key_pair:{pair:"Miami–São Paulo", value:114, est:true},
     segments_owned_pct:0, irus_sold:null,
     partners:["Google"],
-    notes:"Longest single-power-feed subsea cable. TG2026: drove Miami–SP 100G to ?v=52K/mo (-25% CAGR 2021-24)." },
+    notes:"Longest single-power-feed subsea cable. TG2026: drove Miami–SP 100G to ?v=62K/mo (-25% CAGR 2021-24)." },
 
   { id:"hs-sjc2", name:"SJC-2 (Southeast Asia-Japan Cable 2)", owner:"China Mobile, Chunghwa, Chuan Wei, KDDI, Singtel, SK Broadband, PLDT, Telin, VNPT", ownerGroup:"sjc2", layer:"competitor-cable", type:"subsea",
     geometry:[[35.106,140.087],[25.033,121.565],[22.396,114.109],[14.599,120.984],[3.140,101.687],[10.823,106.629],[1.352,103.820]],
@@ -969,7 +969,7 @@ const CABLES = [
     latency_ms_key_pair:{pair:"US West–Tokyo", value:88, est:true},
     segments_owned_pct:0, irus_sold:null,
     partners:["Google"],
-    notes:"TG2026: multi-system trans-Pacific initiative, ?v=5B+. Earliest segments RFS 2026. Drives expected $3B+ surge in trans-Pacific subsea CapEx 2025-27." }
+    notes:"TG2026: multi-system trans-Pacific initiative, ?v=6B+. Earliest segments RFS 2026. Drives expected $3B+ surge in trans-Pacific subsea CapEx 2025-27." }
 ];
 
 /* ---------- POINT ASSETS (POPs, NOCs, carrier hotels, landings, hyperscalers, AI sites, IXPs) ---------- */
@@ -1126,7 +1126,7 @@ const POINTS = [
 
   /* ===== AI mega-sites ===== */
   {id:"ai-xai-colossus1", name:"xAI Colossus 1", layer:"ai-megasite", type:"ai-megasite", operator:"xAI", ownerGroup:"xai", lat:35.0915, lng:-89.9711, city:"Memphis, TN", country:"US", planned_mw:250, current_mw:250, gpu_count:200000, status:"operational", rfs_date:"2024", notes:"200K H100/H200 GPUs. On-site gas turbines."},
-  {id:"ai-xai-colossus2", name:"xAI Colossus 2", layer:"ai-megasite", type:"ai-megasite", operator:"xAI", ownerGroup:"xai", lat:35.0824, lng:-89.9650, city:"Memphis, TN", country:"US", planned_mw:2000, current_mw:1100, gpu_count:555000, status:"scaling (target 1M GPUs late 2026)", rfs_date:"2026-01", notes:"World's largest single-site AI install. 2GW gas plant adjacent. ?v=58B GPU spend."},
+  {id:"ai-xai-colossus2", name:"xAI Colossus 2", layer:"ai-megasite", type:"ai-megasite", operator:"xAI", ownerGroup:"xai", lat:35.0824, lng:-89.9650, city:"Memphis, TN", country:"US", planned_mw:2000, current_mw:1100, gpu_count:555000, status:"scaling (target 1M GPUs late 2026)", rfs_date:"2026-01", notes:"World's largest single-site AI install. 2GW gas plant adjacent. ?v=68B GPU spend."},
   {id:"ai-meta-hyperion", name:"Meta Hyperion", layer:"ai-megasite", type:"ai-megasite", operator:"Meta", ownerGroup:"meta", lat:32.4180, lng:-91.4929, city:"Delhi/Rayville, LA", country:"US", planned_mw:5000, current_mw:0, status:"under construction (through 2030)", rfs_date:"2027", notes:"$200B+, 4M sqft, 2,250 acres. Largest Meta DC ever. 10 gas plants on-site."},
   {id:"ai-stargate-abilene", name:"Stargate Abilene (Site 1)", layer:"ai-megasite", type:"ai-megasite", operator:"Stargate (OpenAI/Oracle/SoftBank)", ownerGroup:"stargate", lat:32.4487, lng:-99.7331, city:"Abilene, TX", country:"US", planned_mw:1200, current_mw:300, gpu_count:450000, status:"operational (partial)", rfs_date:"2025-09", notes:"8 buildings, Nvidia GB200. Flagship Stargate site."},
   {id:"ai-stargate-shackelford", name:"Stargate Shackelford", layer:"ai-megasite", type:"ai-megasite", operator:"Stargate", ownerGroup:"stargate", lat:32.7245, lng:-99.2961, city:"Albany, TX", country:"US", planned_mw:900, current_mw:0, status:"announced", rfs_date:"2027"},
@@ -1327,7 +1327,7 @@ function renderAssetOnMap(a) {
 }
 
 ASSETS.forEach(renderAssetOnMap);
-console.log(`%c[TTI Benchmark v5]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables`, "color:#00c8e6;font-weight:bold", "color:inherit");
+console.log(`%c[TTI Benchmark v6]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables — default: empty map (tick to add)`, "color:#00c8e6;font-weight:bold", "color:inherit");
 
 /* ============================================================
  * TG (TeleGeography submarinecablemap.com) DATA INTEGRATION
@@ -1639,17 +1639,14 @@ function highlightAsset(a) {
 }
 
 function selectAsset(id, fly = false) {
-  console.log("[selectAsset v3]", id, "fly=", fly);
+  console.log("[selectAsset v6]", id, "fly=", fly);
   STATE.selectedAssetId = id;
   const a = ASSETS.find(x => x.id === id);
   if (!a) { console.warn("asset not found:", id); return; }
-  detailPane.innerHTML = renderDetailHTML(a);
-  wireDetailPaneEvents(a);
   renderAssetList();
 
   // Auto-enable the asset's layer if currently hidden
   if (a.layer && layerGroups[a.layer] && !STATE.activeLayers.has(a.layer)) {
-    console.log("[selectAsset] auto-enabling layer:", a.layer);
     STATE.activeLayers.add(a.layer);
     layerGroups[a.layer].addTo(map);
     const cb = layerTogglesEl.querySelector(`input[data-layer="${a.layer}"]`);
@@ -1657,7 +1654,27 @@ function selectAsset(id, fly = false) {
     if (typeof renderStats === "function") renderStats();
   }
 
-  // If we're not on the map view, switch to it so the user sees the result
+  // For cables: clicking a row pins it (so it appears on the map).
+  // If not pinned, add to first free slot. If already pinned, leave as-is.
+  // Right panel content is driven entirely by applyPinFilter()
+  if (isCable(a) && !STATE.pins.includes(id)) {
+    const slot = STATE.pins.indexOf(null);
+    if (slot >= 0) {
+      STATE.pins[slot] = id;
+      renderPins();
+      applyPinFilter();
+      renderAssetList();
+    } else {
+      alert("Max 3 hat seçilebilir. Önce birini kaldırın (sol panelde tikini çıkarın).");
+      return;
+    }
+  } else if (!isCable(a)) {
+    // For points (POPs / DCs / IXPs): just show detail, no map filtering
+    detailPane.innerHTML = renderDetailHTML(a);
+    wireDetailPaneEvents(a);
+  }
+
+  // If we're not on the map view, switch to it
   if (fly && STATE.view !== "map") {
     const btn = viewSwitchEl.querySelector(`button[data-view="map"]`);
     if (btn) btn.click();
@@ -1810,19 +1827,18 @@ function togglePin(id) {
   return true;
 }
 
-/* Hide unpinned cables from the map when 1+ pins are active.
-   When no pins active, all cables visible (default). Points always visible. */
+/* Cables are hidden by default. Only pinned cables (max 3) appear on the map.
+   Points (POPs, landings, hyperscalers) are unaffected. */
 function applyPinFilter() {
   const pinnedIds = STATE.pins.filter(Boolean);
-  const filterActive = pinnedIds.length > 0;
   let hidden = 0, shown = 0, untracked = 0;
   ASSETS.forEach(a => {
-    if (!isCable(a)) return; // points & other types unaffected
+    if (!isCable(a)) return;
     const lg = layerGroups[a.layer];
     if (!lg) return;
-    const shouldShow = !filterActive || pinnedIds.includes(a.id);
+    const shouldShow = pinnedIds.includes(a.id);
     if (!a._mapFeatures || !a._mapFeatures.length) { untracked++; return; }
-    (a._mapFeatures || []).forEach(f => {
+    a._mapFeatures.forEach(f => {
       if (shouldShow) {
         if (!lg.hasLayer(f)) lg.addLayer(f);
         shown++;
@@ -1832,13 +1848,26 @@ function applyPinFilter() {
       }
     });
   });
-  console.log(`[applyPinFilter v5] active=${filterActive} pinned=[${pinnedIds.join(",")}] hidden=${hidden} shown=${shown} untracked=${untracked}`);
-  // Right panel: when comparing show benchmark, else fall back to detail/empty
-  if (filterActive) {
+  console.log(`[applyPinFilter v6] pinned=[${pinnedIds.join(",")}] hidden=${hidden} shown=${shown} untracked=${untracked}`);
+  // Right panel: 0 pinned → empty state, 1 pinned → detail, 2-3 pinned → benchmark
+  if (pinnedIds.length === 0) {
+    detailPane.innerHTML = `
+      <div style="padding:40px 20px;text-align:center;color:var(--text-mute);">
+        <div style="font-size:32px;margin-bottom:12px;opacity:0.4;">⊟</div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:6px;">Soldan kablo seçin</div>
+        <div style="font-size:11px;line-height:1.5;">
+          Karşılaştırmak istediğiniz kabloya tıklayın (max 3).<br/>
+          Harita seçili kabloları gösterir, sağ panel benchmark sıralar.
+        </div>
+      </div>`;
+  } else if (pinnedIds.length === 1) {
+    const a = ASSETS.find(x => x.id === pinnedIds[0]);
+    if (a) {
+      detailPane.innerHTML = renderDetailHTML(a);
+      wireDetailPaneEvents(a);
+    }
+  } else {
     renderBenchmarkPanel(pinnedIds);
-  } else if (STATE.selectedAssetId) {
-    const a = ASSETS.find(x => x.id === STATE.selectedAssetId);
-    if (a) { detailPane.innerHTML = renderDetailHTML(a); wireDetailPaneEvents(a); }
   }
 }
 
@@ -2306,7 +2335,7 @@ function renderTrendsView() {
     <div class="trend-grid">
       <div class="trend-card">
         <h3>Subsea cable CapEx (USD B)</h3>
-        <div class="sub">2016-2024 actual · 2025-2027 planned. Pipeline reaches ?v=54B+ over 3 years (TG2026).</div>
+        <div class="sub">2016-2024 actual · 2025-2027 planned. Pipeline reaches ?v=64B+ over 3 years (TG2026).</div>
         ${barChart({data:TRENDS.subseaCapex, xKey:'y', yKey:'v', yLabel:'USD B'})}
       </div>
       <div class="trend-card">
@@ -2575,6 +2604,10 @@ function renderStats() {
     <div class="stat-row"><span class="k">TTI POPs</span><span class="v">${pops}</span></div>`;
 }
 renderStats();
+
+// Initial state: empty map (no cables visible until user ticks them).
+// applyPinFilter with empty pins hides every cable.
+applyPinFilter();
 
 document.getElementById("topbar-counts").textContent =
   `${ASSETS.length} assets · ${ASSETS.filter(isCable).length} cables · ${ASSETS.filter(a => a.layer==='tti-pop').length} TTI POPs · ${ASSETS.filter(a => a.layer==='ai-megasite').length} AI DCs`;

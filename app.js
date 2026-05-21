@@ -114,7 +114,7 @@ function renderAssetOnMap(a) {
 }
 
 ASSETS.forEach(renderAssetOnMap);
-console.log(`%c[TTI Benchmark v5]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables`, "color:#00c8e6;font-weight:bold", "color:inherit");
+console.log(`%c[TTI Benchmark v6]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables — default: empty map (tick to add)`, "color:#00c8e6;font-weight:bold", "color:inherit");
 
 /* ============================================================
  * TG (TeleGeography submarinecablemap.com) DATA INTEGRATION
@@ -431,17 +431,14 @@ function highlightAsset(a) {
 }
 
 function selectAsset(id, fly = false) {
-  console.log("[selectAsset v3]", id, "fly=", fly);
+  console.log("[selectAsset v6]", id, "fly=", fly);
   STATE.selectedAssetId = id;
   const a = ASSETS.find(x => x.id === id);
   if (!a) { console.warn("asset not found:", id); return; }
-  detailPane.innerHTML = renderDetailHTML(a);
-  wireDetailPaneEvents(a);
   renderAssetList();
 
   // Auto-enable the asset's layer if currently hidden
   if (a.layer && layerGroups[a.layer] && !STATE.activeLayers.has(a.layer)) {
-    console.log("[selectAsset] auto-enabling layer:", a.layer);
     STATE.activeLayers.add(a.layer);
     layerGroups[a.layer].addTo(map);
     const cb = layerTogglesEl.querySelector(`input[data-layer="${a.layer}"]`);
@@ -449,7 +446,27 @@ function selectAsset(id, fly = false) {
     if (typeof renderStats === "function") renderStats();
   }
 
-  // If we're not on the map view, switch to it so the user sees the result
+  // For cables: clicking a row pins it (so it appears on the map).
+  // If not pinned, add to first free slot. If already pinned, leave as-is.
+  // Right panel content is driven entirely by applyPinFilter()
+  if (isCable(a) && !STATE.pins.includes(id)) {
+    const slot = STATE.pins.indexOf(null);
+    if (slot >= 0) {
+      STATE.pins[slot] = id;
+      renderPins();
+      applyPinFilter();
+      renderAssetList();
+    } else {
+      alert("Max 3 hat seçilebilir. Önce birini kaldırın (sol panelde tikini çıkarın).");
+      return;
+    }
+  } else if (!isCable(a)) {
+    // For points (POPs / DCs / IXPs): just show detail, no map filtering
+    detailPane.innerHTML = renderDetailHTML(a);
+    wireDetailPaneEvents(a);
+  }
+
+  // If we're not on the map view, switch to it
   if (fly && STATE.view !== "map") {
     const btn = viewSwitchEl.querySelector(`button[data-view="map"]`);
     if (btn) btn.click();
@@ -593,19 +610,18 @@ function togglePin(id) {
   return true;
 }
 
-/* Hide unpinned cables from the map when 1+ pins are active.
-   When no pins active, all cables visible (default). Points always visible. */
+/* Cables are hidden by default. Only pinned cables (max 3) appear on the map.
+   Points (POPs, landings, hyperscalers) are unaffected. */
 function applyPinFilter() {
   const pinnedIds = STATE.pins.filter(Boolean);
-  const filterActive = pinnedIds.length > 0;
   let hidden = 0, shown = 0, untracked = 0;
   ASSETS.forEach(a => {
-    if (!isCable(a)) return; // points & other types unaffected
+    if (!isCable(a)) return;
     const lg = layerGroups[a.layer];
     if (!lg) return;
-    const shouldShow = !filterActive || pinnedIds.includes(a.id);
+    const shouldShow = pinnedIds.includes(a.id);
     if (!a._mapFeatures || !a._mapFeatures.length) { untracked++; return; }
-    (a._mapFeatures || []).forEach(f => {
+    a._mapFeatures.forEach(f => {
       if (shouldShow) {
         if (!lg.hasLayer(f)) lg.addLayer(f);
         shown++;
@@ -615,13 +631,26 @@ function applyPinFilter() {
       }
     });
   });
-  console.log(`[applyPinFilter v5] active=${filterActive} pinned=[${pinnedIds.join(",")}] hidden=${hidden} shown=${shown} untracked=${untracked}`);
-  // Right panel: when comparing show benchmark, else fall back to detail/empty
-  if (filterActive) {
+  console.log(`[applyPinFilter v6] pinned=[${pinnedIds.join(",")}] hidden=${hidden} shown=${shown} untracked=${untracked}`);
+  // Right panel: 0 pinned → empty state, 1 pinned → detail, 2-3 pinned → benchmark
+  if (pinnedIds.length === 0) {
+    detailPane.innerHTML = `
+      <div style="padding:40px 20px;text-align:center;color:var(--text-mute);">
+        <div style="font-size:32px;margin-bottom:12px;opacity:0.4;">⊟</div>
+        <div style="font-size:13px;color:var(--text);margin-bottom:6px;">Soldan kablo seçin</div>
+        <div style="font-size:11px;line-height:1.5;">
+          Karşılaştırmak istediğiniz kabloya tıklayın (max 3).<br/>
+          Harita seçili kabloları gösterir, sağ panel benchmark sıralar.
+        </div>
+      </div>`;
+  } else if (pinnedIds.length === 1) {
+    const a = ASSETS.find(x => x.id === pinnedIds[0]);
+    if (a) {
+      detailPane.innerHTML = renderDetailHTML(a);
+      wireDetailPaneEvents(a);
+    }
+  } else {
     renderBenchmarkPanel(pinnedIds);
-  } else if (STATE.selectedAssetId) {
-    const a = ASSETS.find(x => x.id === STATE.selectedAssetId);
-    if (a) { detailPane.innerHTML = renderDetailHTML(a); wireDetailPaneEvents(a); }
   }
 }
 
@@ -1358,6 +1387,10 @@ function renderStats() {
     <div class="stat-row"><span class="k">TTI POPs</span><span class="v">${pops}</span></div>`;
 }
 renderStats();
+
+// Initial state: empty map (no cables visible until user ticks them).
+// applyPinFilter with empty pins hides every cable.
+applyPinFilter();
 
 document.getElementById("topbar-counts").textContent =
   `${ASSETS.length} assets · ${ASSETS.filter(isCable).length} cables · ${ASSETS.filter(a => a.layer==='tti-pop').length} TTI POPs · ${ASSETS.filter(a => a.layer==='ai-megasite').length} AI DCs`;

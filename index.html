@@ -134,7 +134,37 @@
     .stat-row .v{color:var(--text)}
 
     /* TABLE / MATRIX */
-    #table-view,#matrix-view{position:absolute;inset:0;overflow:auto;padding:24px;display:none}
+    #table-view,#matrix-view,#trends-view,#strategy-view{position:absolute;inset:0;overflow:auto;padding:24px;display:none}
+
+    /* Trends */
+    .trend-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .trend-card{background:var(--bg-1);border:1px solid var(--border);border-radius:6px;padding:14px}
+    .trend-card h3{margin:0 0 4px 0;font-size:13px}
+    .trend-card .sub{font-size:10px;color:var(--text-mute);margin-bottom:10px}
+    .trend-card svg{width:100%;height:auto;display:block}
+
+    /* Strategy */
+    .strategy-layout{display:grid;grid-template-columns:380px 1fr;gap:24px}
+    .strategy-controls{background:var(--bg-1);border:1px solid var(--border);border-radius:6px;padding:18px}
+    .strategy-controls h3{margin:0 0 14px 0;font-size:14px}
+    .slider-group{margin-bottom:18px}
+    .slider-group .lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:4px}
+    .slider-group .lbl .val{font-family:var(--mono);color:var(--accent);font-weight:600}
+    .slider-group input[type="range"]{width:100%;accent-color:var(--accent)}
+    .slider-group .desc{font-size:10px;color:var(--text-mute);margin-top:3px;line-height:1.4}
+    .preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+    .preset-btn{background:var(--bg-3);color:var(--text-dim);border:1px solid var(--border);padding:5px 9px;border-radius:4px;cursor:pointer;font-size:10px;font-family:var(--sans)}
+    .preset-btn:hover{color:var(--text);border-color:var(--accent)}
+    .preset-btn.active{background:var(--accent);color:#001018;border-color:var(--accent);font-weight:600}
+    .strategy-output{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-content:start}
+    .out-kpi{background:var(--bg-1);border:1px solid var(--border);border-radius:6px;padding:14px}
+    .out-kpi .k{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-mute);margin-bottom:4px}
+    .out-kpi .v{font-family:var(--mono);font-size:24px;color:var(--accent);font-weight:600}
+    .out-kpi .delta{font-size:11px;color:var(--text-dim);margin-top:4px}
+    .out-kpi .delta.pos{color:var(--ok)}
+    .out-kpi .delta.neg{color:var(--danger)}
+    .out-chart{grid-column:1 / -1;background:var(--bg-1);border:1px solid var(--border);border-radius:6px;padding:14px}
+    .out-chart h4{margin:0 0 8px 0;font-size:12px}
     table.benchmark{width:100%;border-collapse:collapse;font-size:12px}
     table.benchmark th{text-align:left;padding:8px 10px;background:var(--bg-2);border-bottom:1px solid var(--border);color:var(--text-dim);font-size:10px;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;position:sticky;top:0;cursor:pointer;user-select:none}
     table.benchmark th:hover{color:var(--text)}
@@ -201,6 +231,8 @@
         <button data-view="map" class="active">Map</button>
         <button data-view="table">Benchmark Table</button>
         <button data-view="matrix">Matrix</button>
+        <button data-view="trends">Trends</button>
+        <button data-view="strategy">Strategy</button>
       </div>
     </header>
 
@@ -241,6 +273,8 @@
         <div id="map"></div>
         <div id="table-view"></div>
         <div id="matrix-view"></div>
+        <div id="trends-view"></div>
+        <div id="strategy-view"></div>
         <div class="legend-overlay" id="legend"></div>
         <div class="stats-overlay" id="stats"></div>
       </section>

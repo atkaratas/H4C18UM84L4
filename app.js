@@ -88,6 +88,7 @@ function renderAssetOnMap(a) {
         });
         m.bindPopup(`<div class="map-popup"><div class="pop-title">${lg.name}</div><div class="pop-meta">${a.name} landing</div></div>`);
         m.addTo(targetLayer);
+        a._mapFeatures.push(m);
       });
     }
   } else if (a.lat != null && a.lng != null) {
@@ -113,6 +114,7 @@ function renderAssetOnMap(a) {
 }
 
 ASSETS.forEach(renderAssetOnMap);
+console.log(`%c[TTI Benchmark v5]%c loaded — ${ASSETS.length} assets, ${ASSETS.filter(isCable).length} cables`, "color:#00c8e6;font-weight:bold", "color:inherit");
 
 /* ============================================================
  * TG (TeleGeography submarinecablemap.com) DATA INTEGRATION
@@ -596,19 +598,24 @@ function togglePin(id) {
 function applyPinFilter() {
   const pinnedIds = STATE.pins.filter(Boolean);
   const filterActive = pinnedIds.length > 0;
+  let hidden = 0, shown = 0, untracked = 0;
   ASSETS.forEach(a => {
     if (!isCable(a)) return; // points & other types unaffected
     const lg = layerGroups[a.layer];
     if (!lg) return;
     const shouldShow = !filterActive || pinnedIds.includes(a.id);
+    if (!a._mapFeatures || !a._mapFeatures.length) { untracked++; return; }
     (a._mapFeatures || []).forEach(f => {
       if (shouldShow) {
         if (!lg.hasLayer(f)) lg.addLayer(f);
+        shown++;
       } else {
         if (lg.hasLayer(f)) lg.removeLayer(f);
+        hidden++;
       }
     });
   });
+  console.log(`[applyPinFilter v5] active=${filterActive} pinned=[${pinnedIds.join(",")}] hidden=${hidden} shown=${shown} untracked=${untracked}`);
   // Right panel: when comparing show benchmark, else fall back to detail/empty
   if (filterActive) {
     renderBenchmarkPanel(pinnedIds);
